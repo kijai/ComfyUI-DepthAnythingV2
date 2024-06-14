@@ -114,7 +114,7 @@ https://depth-anything-v2.github.io
         
         B, H, W, C = images.shape
 
-        images = images.to(device)
+        #images = images.to(device)
         images = images.permute(0, 3, 1, 2)
 
         orig_H, orig_W = H, W
@@ -133,9 +133,9 @@ https://depth-anything-v2.github.io
         autocast_condition = (dtype != torch.float32) and not mm.is_device_mps(device)
         with torch.autocast(mm.get_autocast_device(device), dtype=dtype) if autocast_condition else nullcontext():
             for img in normalized_images:
-                depth = model.infer_image(img.unsqueeze(0))
+                depth = model.infer_image(img.unsqueeze(0).to(device))
                 depth = (depth - depth.min()) / (depth.max() - depth.min())
-                out.append(depth)
+                out.append(depth.cpu())
                 pbar.update(1)
             model.to(offload_device)
             depth_out = torch.cat(out, dim=0)
