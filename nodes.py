@@ -35,6 +35,12 @@ class DownloadAndLoadDepthAnythingV2Model:
     RETURN_NAMES = ("da_v2_model",)
     FUNCTION = "loadmodel"
     CATEGORY = "DepthAnythingV2"
+    DESCRIPTION = """
+Models autodownload to `ComfyUI\models\depthanything` from   
+https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main   
+   
+fp16 reduces quality by a LOT, not recommended.
+"""
 
     def loadmodel(self, model):
         device = mm.get_torch_device()
