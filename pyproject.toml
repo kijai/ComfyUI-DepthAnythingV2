@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-depthanythingv2"
+description = "ComfyUI nodes to use [a/DepthAnythingV2](https://depth-anything-v2.github.io/)\nNOTE:Models autodownload to ComfyUI/models/depthanything from [a/https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main](https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main)"
+version = "1.0.0"
+license = "LICENSE"
+dependencies = ["huggingface_hub"]
+
+[project.urls]
+Repository = "https://github.com/kijai/ComfyUI-DepthAnythingV2"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI-DepthAnythingV2"
+Icon = ""
