@@ -24,6 +24,8 @@ class DownloadAndLoadDepthAnythingV2Model:
                         'depth_anything_v2_vitb_fp32.safetensors',
                         'depth_anything_v2_vitl_fp16.safetensors',
                         'depth_anything_v2_vitl_fp32.safetensors',
+                        'depth_anything_v2_metric_hypersim_vitl_fp32.safetensors',
+                        'depth_anything_v2_metric_vkitti_vitl_fp32.safetensors'
                     ],
                     {
                     "default": 'depth_anything_v2_vitl_fp32.safetensors'
@@ -75,7 +77,15 @@ fp16 reduces quality by a LOT, not recommended.
             elif "vits" in model:
                 encoder = "vits"
 
-            self.model = DepthAnythingV2(**model_configs[encoder])
+            if "hypersim" in model:
+                max_depth = 20.0
+            else:
+                max_depth = 80.0
+
+            if 'metric' in model:
+                self.model = DepthAnythingV2(**{**model_configs[encoder], 'is_metric': True, 'max_depth': max_depth})
+            else:
+                self.model = DepthAnythingV2(**model_configs[encoder])
             
             state_dict = load_torch_file(model_path)
             self.model.load_state_dict(state_dict)
@@ -84,7 +94,8 @@ fp16 reduces quality by a LOT, not recommended.
             self.model = self.model.to(dtype).to(device).eval()
             da_model = {
                 "model": self.model,
-                "dtype": dtype
+                "dtype": dtype,
+                "is_metric": self.model.is_metric
             }
            
         return (da_model,)
@@ -146,6 +157,8 @@ https://depth-anything-v2.github.io
 
         if depth_out.shape[1] != final_H or depth_out.shape[2] != final_W:
             depth_out = F.interpolate(depth_out.permute(0, 3, 1, 2), size=(final_H, final_W), mode="bicubic").permute(0, 2, 3, 1)
+        if da_model['is_metric']:
+            depth_out = 1 - depth_out
         return (depth_out,)
     
 NODE_CLASS_MAPPINGS = {

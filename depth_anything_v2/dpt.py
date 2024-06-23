@@ -42,11 +42,13 @@ class DPTHead(nn.Module):
         features=256, 
         use_bn=False, 
         out_channels=[256, 512, 1024, 1024], 
-        use_clstoken=False
+        use_clstoken=False,
+        is_metric=False
     ):
         super(DPTHead, self).__init__()
         
         self.use_clstoken = use_clstoken
+        self.is_metric=is_metric
         
         self.projects = nn.ModuleList([
             nn.Conv2d(
@@ -106,13 +108,21 @@ class DPTHead(nn.Module):
         head_features_2 = 32
         
         self.scratch.output_conv1 = nn.Conv2d(head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1)
-        self.scratch.output_conv2 = nn.Sequential(
-            nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
-            nn.ReLU(True),
-            nn.Identity(),
-        )
+        if self.is_metric:
+            self.scratch.output_conv2 = nn.Sequential(
+                nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(True),
+                nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
+                nn.Sigmoid()
+            )
+        else:
+            self.scratch.output_conv2 = nn.Sequential(
+                nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(True),
+                nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
+                nn.ReLU(True),
+                nn.Identity(),
+            )
     
     def forward(self, out_features, patch_h, patch_w):
         out = []
@@ -157,7 +167,9 @@ class DepthAnythingV2(nn.Module):
         features=256, 
         out_channels=[256, 512, 1024, 1024], 
         use_bn=False, 
-        use_clstoken=False
+        use_clstoken=False,
+        is_metric=False,
+        max_depth=20.0
     ):
         super(DepthAnythingV2, self).__init__()
         
@@ -168,18 +180,24 @@ class DepthAnythingV2(nn.Module):
             'vitg': [9, 19, 29, 39]
         }
         
+        self.is_metric = is_metric
+        self.max_depth = max_depth
+        
         self.encoder = encoder
         self.pretrained = DINOv2(model_name=encoder)
         
-        self.depth_head = DPTHead(self.pretrained.embed_dim, features, use_bn, out_channels=out_channels, use_clstoken=use_clstoken)
+        self.depth_head = DPTHead(self.pretrained.embed_dim, features, use_bn, out_channels=out_channels, use_clstoken=use_clstoken, is_metric=is_metric)
     
     def forward(self, x):
         patch_h, patch_w = x.shape[-2] // 14, x.shape[-1] // 14
         
         features = self.pretrained.get_intermediate_layers(x, self.intermediate_layer_idx[self.encoder], return_class_token=True)
         
-        depth = self.depth_head(features, patch_h, patch_w)
-        depth = F.relu(depth)
+        if self.is_metric:
+            depth = self.depth_head(features, patch_h, patch_w) * self.max_depth
+        else:
+            depth = self.depth_head(features, patch_h, patch_w)
+            depth = F.relu(depth)
         
         return depth.squeeze(1)
     
