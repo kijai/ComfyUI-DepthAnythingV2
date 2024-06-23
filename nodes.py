@@ -2,7 +2,6 @@
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
-from huggingface_hub import hf_hub_download
 import os
 from contextlib import nullcontext
 
@@ -144,7 +143,7 @@ https://depth-anything-v2.github.io
         autocast_condition = (dtype != torch.float32) and not mm.is_device_mps(device)
         with torch.autocast(mm.get_autocast_device(device), dtype=dtype) if autocast_condition else nullcontext():
             for img in normalized_images:
-                depth = model.infer_image(img.unsqueeze(0).to(device))
+                depth = model(img.unsqueeze(0).to(device))
                 depth = (depth - depth.min()) / (depth.max() - depth.min())
                 out.append(depth.cpu())
                 pbar.update(1)
