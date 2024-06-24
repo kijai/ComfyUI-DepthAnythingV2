@@ -133,7 +133,7 @@ https://depth-anything-v2.github.io
         if H % 14 != 0:
             H = H - (H % 14)
         if orig_H % 14 != 0 or orig_W % 14 != 0:
-            images = F.interpolate(images, size=(H, W), mode="bicubic")
+            images = F.interpolate(images, size=(H, W), mode="bilinear")
         
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         normalized_images = normalize(images)
@@ -154,8 +154,12 @@ https://depth-anything-v2.github.io
         final_H = (orig_H // 2) * 2
         final_W = (orig_W // 2) * 2
 
+        
+
         if depth_out.shape[1] != final_H or depth_out.shape[2] != final_W:
-            depth_out = F.interpolate(depth_out.permute(0, 3, 1, 2), size=(final_H, final_W), mode="bicubic").permute(0, 2, 3, 1)
+            depth_out = F.interpolate(depth_out.permute(0, 3, 1, 2), size=(final_H, final_W), mode="bilinear").permute(0, 2, 3, 1)
+        depth_out = (depth_out - depth_out.min()) / (depth_out.max() - depth_out.min())
+        depth_out = torch.clamp(depth_out, 0, 1)
         if da_model['is_metric']:
             depth_out = 1 - depth_out
         return (depth_out,)
