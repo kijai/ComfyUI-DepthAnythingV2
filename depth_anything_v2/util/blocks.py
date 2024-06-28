@@ -1,5 +1,6 @@
 import torch.nn as nn
-
+import comfy.ops
+ops = comfy.ops.manual_cast
 
 def _make_scratch(in_shape, out_shape, groups=1, expand=False):
     scratch = nn.Module()
@@ -17,11 +18,11 @@ def _make_scratch(in_shape, out_shape, groups=1, expand=False):
         if len(in_shape) >= 4:
             out_shape4 = out_shape * 8
 
-    scratch.layer1_rn = nn.Conv2d(in_shape[0], out_shape1, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
-    scratch.layer2_rn = nn.Conv2d(in_shape[1], out_shape2, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
-    scratch.layer3_rn = nn.Conv2d(in_shape[2], out_shape3, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
+    scratch.layer1_rn = ops.Conv2d(in_shape[0], out_shape1, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
+    scratch.layer2_rn = ops.Conv2d(in_shape[1], out_shape2, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
+    scratch.layer3_rn = ops.Conv2d(in_shape[2], out_shape3, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
     if len(in_shape) >= 4:
-        scratch.layer4_rn = nn.Conv2d(in_shape[3], out_shape4, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
+        scratch.layer4_rn = ops.Conv2d(in_shape[3], out_shape4, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
 
     return scratch
 
@@ -42,9 +43,9 @@ class ResidualConvUnit(nn.Module):
 
         self.groups=1
 
-        self.conv1 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
+        self.conv1 = ops.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
         
-        self.conv2 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
+        self.conv2 = ops.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
 
         if self.bn == True:
             self.bn1 = nn.BatchNorm2d(features)
@@ -111,7 +112,7 @@ class FeatureFusionBlock(nn.Module):
         if self.expand == True:
             out_features = features // 2
         
-        self.out_conv = nn.Conv2d(features, out_features, kernel_size=1, stride=1, padding=0, bias=True, groups=1)
+        self.out_conv = ops.Conv2d(features, out_features, kernel_size=1, stride=1, padding=0, bias=True, groups=1)
 
         self.resConfUnit1 = ResidualConvUnit(features, activation, bn)
         self.resConfUnit2 = ResidualConvUnit(features, activation, bn)

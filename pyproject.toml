@@ -1,9 +1,9 @@
 [project]
 name = "comfyui-depthanythingv2"
 description = "ComfyUI nodes to use [a/DepthAnythingV2](https://depth-anything-v2.github.io/)\nNOTE:Models autodownload to ComfyUI/models/depthanything from [a/https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main](https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main)"
-version = "1.0.0"
+version = "1.0.1"
 license = "LICENSE"
-dependencies = ["huggingface_hub"]
+dependencies = ["huggingface_hub", "accelerate"]
 
 [project.urls]
 Repository = "https://github.com/kijai/ComfyUI-DepthAnythingV2"
