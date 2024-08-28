@@ -17,6 +17,7 @@ try:
     from accelerate.utils import set_module_tensor_to_device
     is_accelerate_available = True
 except:
+    is_accelerate_available = False
     pass
 
 class DownloadAndLoadDepthAnythingV2Model:
