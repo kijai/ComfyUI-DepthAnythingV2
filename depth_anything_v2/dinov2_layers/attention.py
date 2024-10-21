@@ -14,12 +14,12 @@ from torch import Tensor
 from torch import nn
 import comfy.ops
 ops = comfy.ops.manual_cast
+from comfy.ldm.modules.attention import optimized_attention
 
 logger = logging.getLogger("dinov2")
 
-
 try:
-    from xformers.ops import memory_efficient_attention, unbind, fmha
+    from xformers.ops import memory_efficient_attention, unbind
 
     XFORMERS_AVAILABLE = True
 except ImportError:
@@ -39,29 +39,39 @@ class Attention(nn.Module):
     ) -> None:
         super().__init__()
         self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = head_dim**-0.5
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim**-0.5
 
         self.qkv = ops.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = ops.Linear(dim, dim, bias=proj_bias)
         self.proj_drop = nn.Dropout(proj_drop)
+        
 
     def forward(self, x: Tensor) -> Tensor:
+        # B, N, C = x.shape
+        # qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+
+        # q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
+        # attn = q @ k.transpose(-2, -1)
+
+        # attn = attn.softmax(dim=-1)
+        # #attn = self.attn_drop(attn)
+
+        # x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        # x = self.proj(x)
+        # #x = self.proj_drop(x)
+        # return x
+        # print("x shape: ", x.shape)
+       
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        out = optimized_attention(q, k, v, self.num_heads, skip_reshape=True)
 
-        q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
-        attn = q @ k.transpose(-2, -1)
-
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
-
+        out= self.proj(out)
+        out = self.proj_drop(out)
+        return out
+        
 
 class MemEffAttention(Attention):
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
