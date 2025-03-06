@@ -105,11 +105,12 @@ fp16 reduces quality by a LOT, not recommended.
                 self.model.load_state_dict(state_dict)
 
             self.model.eval()
-            da_model = {
-                "model": self.model,
-                "dtype": dtype,
-                "is_metric": self.model.is_metric
-            }
+ 
+        da_model = {
+            "model": self.model,
+            "dtype": dtype,
+            "is_metric": self.model.is_metric
+        }
            
         return (da_model,)
     
