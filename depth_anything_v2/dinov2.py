@@ -10,29 +10,14 @@
 from functools import partial
 import math
 import logging
-from typing import Sequence, Tuple, Union, Callable
+from typing import Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
-import torch.utils.checkpoint
-from torch.nn.init import trunc_normal_
 
 from .dinov2_layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
 
-
 logger = logging.getLogger("dinov2")
-
-
-def named_apply(fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False) -> nn.Module:
-    if not depth_first and include_root:
-        fn(module=module, name=name)
-    for child_name, child_module in module.named_children():
-        child_name = ".".join((name, child_name)) if name else child_name
-        named_apply(fn=fn, module=child_module, name=child_name, depth_first=depth_first, include_root=True)
-    if depth_first and include_root:
-        fn(module=module, name=name)
-    return module
-
 
 class BlockChunk(nn.ModuleList):
     def forward(self, x):
@@ -167,14 +152,7 @@ class DinoVisionTransformer(nn.Module):
 
         self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
 
-        self.init_weights()
-
-    def init_weights(self):
-        trunc_normal_(self.pos_embed, std=0.02)
-        nn.init.normal_(self.cls_token, std=1e-6)
-        if self.register_tokens is not None:
-            nn.init.normal_(self.register_tokens, std=1e-6)
-        named_apply(init_weights_vit_timm, self)
+        pass
 
     def interpolate_pos_encoding(self, x, w, h):
         previous_dtype = x.dtype
@@ -193,7 +171,6 @@ class DinoVisionTransformer(nn.Module):
         # DINOv2 with register modify the interpolate_offset from 0.1 to 0.0
         w0, h0 = w0 + self.interpolate_offset, h0 + self.interpolate_offset
         # w0, h0 = w0 + 0.1, h0 + 0.1
-        
         sqrt_N = math.sqrt(N)
         sx, sy = float(w0) / sqrt_N, float(h0) / sqrt_N
         patch_pos_embed = nn.functional.interpolate(
@@ -203,7 +180,7 @@ class DinoVisionTransformer(nn.Module):
             mode="bicubic",
             antialias=self.interpolate_antialias
         )
-        
+
         assert int(w0) == patch_pos_embed.shape[-2]
         assert int(h0) == patch_pos_embed.shape[-1]
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
@@ -328,13 +305,6 @@ class DinoVisionTransformer(nn.Module):
             return self.head(ret["x_norm_clstoken"])
 
 
-def init_weights_vit_timm(module: nn.Module, name: str = ""):
-    """ViT weight initialization, original timm impl (for reproducibility)"""
-    if isinstance(module, nn.Linear):
-        trunc_normal_(module.weight, std=0.02)
-        if module.bias is not None:
-            nn.init.zeros_(module.bias)
-
 
 def vit_small(patch_size=16, num_register_tokens=0, **kwargs):
     model = DinoVisionTransformer(
@@ -397,12 +367,12 @@ def vit_giant2(patch_size=16, num_register_tokens=0, **kwargs):
 
 def DINOv2(model_name):
     model_zoo = {
-        "vits": vit_small, 
-        "vitb": vit_base, 
-        "vitl": vit_large, 
+        "vits": vit_small,
+        "vitb": vit_base,
+        "vitl": vit_large,
         "vitg": vit_giant2
     }
-    
+
     return model_zoo[model_name](
         img_size=518,
         patch_size=14,

@@ -11,15 +11,6 @@ import folder_paths
 
 from .depth_anything_v2.dpt import DepthAnythingV2
 
-from contextlib import nullcontext
-try:
-    from accelerate import init_empty_weights
-    from accelerate.utils import set_module_tensor_to_device
-    is_accelerate_available = True
-except:
-    is_accelerate_available = False
-    pass
-
 class DownloadAndLoadDepthAnythingV2Model:
     @classmethod
     def INPUT_TYPES(s):
@@ -51,14 +42,13 @@ class DownloadAndLoadDepthAnythingV2Model:
     FUNCTION = "loadmodel"
     CATEGORY = "DepthAnythingV2"
     DESCRIPTION = """
-Models autodownload to `ComfyUI\models\depthanything` from   
+Models autodownload to `ComfyUI/models/depthanything` from   
 https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main   
    
 fp16 reduces quality by a LOT, not recommended.
 """
 
     def loadmodel(self, model, precision="fp32"):
-        device = mm.get_torch_device()
         if precision == "auto":
             dtype = torch.float16 if "fp16" in model else torch.float32
         elif precision == "bf16":
@@ -107,18 +97,13 @@ fp16 reduces quality by a LOT, not recommended.
         else:
             max_depth = 80.0
 
-        with (init_empty_weights() if is_accelerate_available else nullcontext()):
-            if 'metric' in model:
-                self.model = DepthAnythingV2(**{**model_configs[encoder], 'is_metric': True, 'max_depth': max_depth})
-            else:
-                self.model = DepthAnythingV2(**model_configs[encoder])
-        
-        state_dict = load_torch_file(model_path)
-        if is_accelerate_available:
-            for key in state_dict:
-                set_module_tensor_to_device(self.model, key, device=device, dtype=dtype, value=state_dict[key])
+        if 'metric' in model:
+            self.model = DepthAnythingV2(**{**model_configs[encoder], 'is_metric': True, 'max_depth': max_depth})
         else:
-            self.model.load_state_dict(state_dict)
+            self.model = DepthAnythingV2(**model_configs[encoder])
+
+        state_dict = load_torch_file(model_path)
+        self.model.load_state_dict(state_dict, strict=False)
 
         self.model.eval()
  
@@ -182,19 +167,21 @@ https://depth-anything-v2.github.io
         model.to(offload_device)
         mm.soft_empty_cache()
         depth_out = torch.cat(out, dim=0)
-        depth_out = depth_out.unsqueeze(-1).repeat(1, 1, 1, 3).cpu().float()
+        depth_out = depth_out.unsqueeze(-1).expand(-1, -1, -1, 3).cpu().float()
         
         final_H = (orig_H // 2) * 2
         final_W = (orig_W // 2) * 2
 
         if depth_out.shape[1] != final_H or depth_out.shape[2] != final_W:
             depth_out = F.interpolate(depth_out.permute(0, 3, 1, 2), size=(final_H, final_W), mode="bilinear").permute(0, 2, 3, 1)
-        depth_out = (depth_out - depth_out.min()) / (depth_out.max() - depth_out.min())
-        depth_out = torch.clamp(depth_out, 0, 1)
+        depth_min = depth_out.min()
+        depth_max = depth_out.max()
+        depth_out.sub_(depth_min).div_(depth_max - depth_min)
+        depth_out.clamp_(0, 1)
         if da_model['is_metric']:
             depth_out = 1 - depth_out
         return (depth_out,)
-    
+
 NODE_CLASS_MAPPINGS = {
     "DepthAnything_V2": DepthAnything_V2,
     "DownloadAndLoadDepthAnythingV2Model": DownloadAndLoadDepthAnythingV2Model
