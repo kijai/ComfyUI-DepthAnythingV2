@@ -167,7 +167,7 @@ https://depth-anything-v2.github.io
         model.to(offload_device)
         mm.soft_empty_cache()
         depth_out = torch.cat(out, dim=0)
-        depth_out = depth_out.unsqueeze(-1).expand(-1, -1, -1, 3).cpu().float()
+        depth_out = depth_out.unsqueeze(-1).expand(-1, -1, -1, 3).contiguous().cpu().float()
         
         final_H = (orig_H // 2) * 2
         final_W = (orig_W // 2) * 2
