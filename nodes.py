@@ -11,6 +11,8 @@ import folder_paths
 
 from .depth_anything_v2.dpt import DepthAnythingV2
 
+folder_paths.add_model_folder_path("depthanything", os.path.join(folder_paths.models_dir, "depthanything"))
+
 class DownloadAndLoadDepthAnythingV2Model:
     @classmethod
     def INPUT_TYPES(s):
@@ -42,7 +44,8 @@ class DownloadAndLoadDepthAnythingV2Model:
     FUNCTION = "loadmodel"
     CATEGORY = "DepthAnythingV2"
     DESCRIPTION = """
-Models autodownload to `ComfyUI/models/depthanything` from   
+Models use `depthanything` paths from `extra_model_paths.yaml`, falling back to `ComfyUI/models/depthanything`.
+Missing models download to the first path from
 https://huggingface.co/Kijai/DepthAnythingV2-safetensors/tree/main   
    
 fp16 reduces quality by a LOT, not recommended.
@@ -65,8 +68,10 @@ fp16 reduces quality by a LOT, not recommended.
             'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
         }
        
-        download_path = os.path.join(folder_paths.models_dir, "depthanything")
-        model_path = os.path.join(download_path, model)
+        download_path = folder_paths.get_folder_paths("depthanything")[0]
+        model_path = folder_paths.get_full_path("depthanything", model)
+        if model_path is None:
+            model_path = os.path.join(download_path, model)
 
         if "vitg" in model:
             repo = "Nap/depth_anything_v2_vitg"
